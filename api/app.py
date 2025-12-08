@@ -128,6 +128,14 @@ def encontrar_contenedores_relevantes(html_content):
                     if len(set(valores)) > 1:
                         variable_attrs_final.append(f"{relative_key}@{attr_name}")
 
+            # ====================================================================
+            # <<< CAMBIO SOLICITADO: FILTRAR CONTENEDORES SIN VARIABLES SEMÁNTICAS >>>
+            # Si no se encontró ninguna variable (es decir, todas las unidades son idénticas),
+            # descartamos el contenedor.
+            if not variable_attrs_final:
+                continue
+            # ====================================================================
+
             # --- EXTRAER DATOS DE INSTANCIA ---
             data_instances = []
             for unidad in unidades_semanticas:
@@ -327,6 +335,7 @@ if st.session_state.html_content:
                     st.markdown(f"**Etiqueta Raíz Unidad:** `{res['unit_root_tag']}`")
                     st.markdown(f"**Vista Previa:** `{res['container_preview']}`")
 
+                    # NOTA: Este es el bloque que causaba problemas de anidamiento en algunas versiones de Streamlit
                     with st.expander("Ver Variables y Rutas"):
                         st.code(f"XPath: {res['container_xpath']}", language='text')
                         st.markdown("**Variables Semánticas Detectadas:**")
