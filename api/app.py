@@ -7,7 +7,7 @@ import lxml.etree
 import pandas as pd
 
 # --- 1. CONFIGURACIÓN ---
-MIN_HIJOS_REQUERIDOS = 3
+MIN_HIJOS_REQUERIDOS = 4  # Requiere 4 o más instancias (unidades semánticas)
 UMBRAL_FRECUENCIA = 0.6
 
 
@@ -34,8 +34,13 @@ def get_xpath(tag):
         if parent is None or parent.name == '[document]': break
         tag_name = parent.name
         count = 1
+
+        # <<< MEJORA: Solo contar hermanos que son etiquetas y tienen el mismo nombre >>>
         for sibling in parent.previous_siblings:
-            if sibling.name == tag_name: count += 1
+            if hasattr(sibling, 'name') and sibling.name == tag_name:
+                count += 1
+        # *****************************************************************************
+
         path.append(f"{tag_name}[{count}]")
     return "/" + "/".join(reversed(path))
 
@@ -93,6 +98,8 @@ def encontrar_contenedores_relevantes(html_content):
 
     for elemento_padre in soup.find_all(True):
         hijos = [h for h in elemento_padre.contents if hasattr(h, 'name') and h.name is not None]
+
+        # Filtro de rendimiento: descartar si no tiene suficientes hijos directos (al menos 4)
         if len(hijos) < MIN_HIJOS_REQUERIDOS: continue
 
         agrupados_por_huella = {}
@@ -107,6 +114,12 @@ def encontrar_contenedores_relevantes(html_content):
             agrupados_por_huella.items(), key=lambda item: len(item[1])
         )
         frecuencia_maxima = len(unidades_semanticas)
+
+        # FILTRO DE INSTANCIAS (UNIDADES SEMÁNTICAS):
+        # Aseguramos que la cantidad de instancias repetidas (frecuencia_maxima)
+        # sea mayor o igual que el mínimo requerido (4).
+        if frecuencia_maxima < MIN_HIJOS_REQUERIDOS:
+            continue
 
         if (frecuencia_maxima / len(hijos)) >= UMBRAL_FRECUENCIA:
 
@@ -128,13 +141,9 @@ def encontrar_contenedores_relevantes(html_content):
                     if len(set(valores)) > 1:
                         variable_attrs_final.append(f"{relative_key}@{attr_name}")
 
-            # ====================================================================
-            # <<< CAMBIO SOLICITADO: FILTRAR CONTENEDORES SIN VARIABLES SEMÁNTICAS >>>
-            # Si no se encontró ninguna variable (es decir, todas las unidades son idénticas),
-            # descartamos el contenedor.
+            # FILTRO: Descartar contenedores sin variables semánticas
             if not variable_attrs_final:
                 continue
-            # ====================================================================
 
             # --- EXTRAER DATOS DE INSTANCIA ---
             data_instances = []
